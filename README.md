@@ -215,15 +215,9 @@ bash install-helm.bash --version v2.6.2
 Set up a ServiceAccount for use by Tiller, the server side component of helm.
 ```bash
 kubectl --namespace kube-system create serviceaccount tiller
-```
-
-Give the ServiceAccount RBAC full permissions to manage the cluser.
-```bash
+# Give the ServiceAccount RBAC full permissions to manage the cluser.
 kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
-```
-
-Set up Helm on the cluster. This command only needs to run once per Kubernetes cluster.
-```bash
+#Set up Helm on the cluster. This command only needs to run once per Kubernetes cluster.
 helm init --service-account tiller
 ```
 
@@ -255,6 +249,7 @@ Create config.yaml
 ```bash
 echo "proxy:" > config.yaml
 echo "  secretToken: '$RANDHEX'" >> config.yaml
+cat config.yaml
 ```
 
 Let’s add the JupyterHub helm repository to your helm, so you can install JupyterHub from it. <br>
