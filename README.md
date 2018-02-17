@@ -62,7 +62,7 @@ Pricing is [here](https://cloud.google.com/compute/pricing#machinetype)
 
 Zones is [explained here](https://cloud.google.com/compute/docs/regions-zones/)
 
-europe-west3 is in Frankfurt, Germany	
+europe-west1 is in St. Ghislain, Belgium
 
 ```bash
 gcloud compute regions list
@@ -70,8 +70,8 @@ gcloud compute zones list
 
 gcloud compute machine-types list | head
 gcloud compute machine-types list | grep europe
-compute machine-types list | grep europe-west3
-gcloud compute machine-types list | grep europe-west3 | grep n1-standard-2
+compute machine-types list | grep europe-west1
+gcloud compute machine-types list | grep europe-west1 | grep n1-standard-2
 
 
 gcloud compute regions list
@@ -84,9 +84,9 @@ You need to start minimum 1 nodes, but with at least **7.5GB Memory.**
 echo "# The Google Cloud Kubernetes Name" >> 01_vars.sh
 echo "G_KUBE_NAME=cluster-1" >> 01_vars.sh
 echo "# The Google Cloud Kubernetes Region" >> 01_vars.sh
-echo "G_KUBE_REGION=europe-west3" >> 01_vars.sh
+echo "G_KUBE_REGION=europe-west1" >> 01_vars.sh
 echo "# The Google Cloud Kubernetes Zone" >> 01_vars.sh
-echo "G_KUBE_ZONE=europe-west3-a" >> 01_vars.sh
+echo "G_KUBE_ZONE=europe-west1-b" >> 01_vars.sh
 echo "# The Google Cloud Kubernetes cluster-version" >> 01_vars.sh
 echo "G_KUBE_CLUSTERVERSION=1.8.7-gke.1" >> 01_vars.sh
 echo "# The Google Cloud Kubernetes machine-type" >> 01_vars.sh
@@ -147,6 +147,20 @@ gcloud container clusters create $G_KUBE_NAME \
     --machine-type=$G_KUBE_MACHINETYPE \
     --num-nodes=$G_KUBE_NUMNODES \
 ```
+
+Or with cheaper [preemptible-vm](https://cloud.google.com/kubernetes-engine/docs/concepts/preemptible-vm)
+
+```bash
+gcloud config set container/use_v1_api_client false
+gcloud config set project $G_PROJECT_ID
+
+gcloud beta container clusters create $G_KUBE_NAME \
+    --zone=$G_KUBE_ZONE \
+    --cluster-version=$G_KUBE_CLUSTERVERSION \
+    --machine-type=$G_KUBE_MACHINETYPE \
+    --num-nodes=$G_KUBE_NUMNODES \
+```
+
 
 ```bash
 gcloud container clusters list
