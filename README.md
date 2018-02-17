@@ -378,5 +378,25 @@ At a minimum, check the following under the Hamburger (left top corner) menu:
 
 # Extend jupyterhub
 
-
 [extending-jupyterhub](https://zero-to-jupyterhub.readthedocs.io/en/latest/extending-jupyterhub.html)
+
+# Mofify CNAME
+
+See [DNS](https://cloud.google.com/dns/quickstart)
+
+and [DNS zone](https://console.cloud.google.com/net-services/dns/zones)
+
+At 
+Zone name: 'voxhub'
+DNS name: 'voxhub.voxtools.dk'
+DNSSEC: Off
+
+At https://web.gratisdns.dk/
+
+NS (Navneservers)
+
+Host: voxhub.voxtools.dk
+Nsdname: ns-cloud-c1.googledomains.com
+TTL: 21600
+
+Do this 4 times
