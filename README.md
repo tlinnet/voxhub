@@ -121,7 +121,7 @@ Create service account
 
 ```bash
 open https://console.cloud.google.com/iam-admin/serviceaccounts/project?project=${G_PROJECT_ID}
-# Move it to ssh
+# After download, move it to ssh
 ls -la $HOME/Downloads/${G_PROJECT_NAME}-*.json
 mv $HOME/Downloads/${G_PROJECT_NAME}-*.json $HOME/.ssh/
 ls -la $HOME/.ssh/${G_PROJECT_NAME}-*.json
@@ -177,10 +177,7 @@ kubectl get services
 See [accessing-the-api](https://kubernetes.io/docs/admin/accessing-the-api/)
 
 ```bash
-cat $HOME/.kube/config
-KUBE_USER=`cat $HOME/.kube/config | grep "user: " | tr -d " " | cut -d ":" -f2`
-echo $KUBE_USER
-
+# Get email of current service user
 SERVICE_USER=$(gcloud config get-value account)
 echo $SERVICE_USER
 ```
@@ -214,3 +211,103 @@ See [setup-helm](https://zero-to-jupyterhub.readthedocs.io/en/latest/setup-helm.
 Helm, the package manager for Kubernetes, is a useful tool to install, upgrade and manage applications on a Kubernetes cluster. 
 We will be using Helm to install and manage JupyterHub on our cluster.
 
+```bash
+curl https://raw.githubusercontent.com/kubernetes/helm/master/scripts/get > install-helm.bash
+bash install-helm.bash --version v2.6.2
+```
+
+Set up a ServiceAccount for use by Tiller, the server side component of helm.
+```bash
+kubectl --namespace kube-system create serviceaccount tiller
+```
+
+Give the ServiceAccount RBAC full permissions to manage the cluser.
+```bash
+kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
+```
+
+Set up Helm on the cluster. This command only needs to run once per Kubernetes cluster.
+```bash
+helm init --service-account tiller
+```
+
+## Verify helm
+
+```bash
+helm version
+```
+
+## Secure Helm
+
+Ensure that tiller is secure from access inside the cluster:
+
+```bash
+kubectl --namespace=kube-system patch deployment tiller-deploy --type=json --patch='[{"op": "add", "path": "/spec/template/spec/containers/0/command", "value": ["/tiller", "--listen=localhost:44134"]}]'
+```
+
+# Install JupyterHub!
+
+See [setup-jupyterhub](https://zero-to-jupyterhub.readthedocs.io/en/latest/setup-jupyterhub.html#setup-jupyterhub)
+
+Create a random hex string to use as a security token.
+```bash
+RANDHEX=`openssl rand -hex 32`
+echo $RANDHEX
+```
+
+Create config.yaml
+```bash
+echo "proxy:" > config.yaml
+echo "  secretToken: '$RANDHEX'" >> config.yaml
+```
+
+Let’s add the JupyterHub helm repository to your helm, so you can install JupyterHub from it. <br>
+This makes it easy to refer to the JupyterHub chart without having to use a long URL each time.
+
+```bash
+helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
+helm repo update
+```
+
+Now you can install the chart! <br>
+Run this command from the directory that contains the config.yaml file to spin up JupyterHub:
+
+Save variables for Helm. 
+
+```bash
+G_KUBE_CURCONT=`kubectl config current-context`
+echo $G_KUBE_CURCONT
+echo "# The The Google Cloud Kubernetes current context " >> 01_vars.sh
+echo "G_KUBE_CURCONT=$G_KUBE_CURCONT" >> 01_vars.sh
+
+G_KUBE_NAMESPACE=$G_PROJECT_NAME
+echo $G_KUBE_NAMESPACE
+echo "# The The Google Cloud Kubernetes namespace " >> 01_vars.sh
+echo "G_KUBE_NAMESPACE=$G_KUBE_NAMESPACE" >> 01_vars.sh
+
+# The relase name must NOT contain underscores "_"
+echo "# The Helm release name " >> 01_vars.sh
+echo "H_RELEASE=jup-01" >> 01_vars.sh
+
+source 01_vars.sh
+```
+
+Create name namespace
+```bash
+# See first
+kubectl get namespaces
+# This should be empty
+kubectl config view | grep namespace:
+# create
+kubectl config set-context $G_KUBE_CURCONT --namespace=$G_KUBE_NAMESPACE
+kubectl config view | grep namespace:
+```
+
+Install 
+```bash
+helm install jupyterhub/jupyterhub \
+    --version=v0.6 \
+    --name=$H_RELEASE \
+    --namespace=$G_KUBE_NAMESPACE \
+    -f config.yaml
+```
