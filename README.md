@@ -325,6 +325,16 @@ kubectl --namespace=$G_KUBE_NAMESPACE get svc proxy-public
 kubectl --namespace=$G_KUBE_NAMESPACE describe svc proxy-public
 ```
 
+Get the external IP and open
+```bash
+EXTIP=`kubectl --namespace=$G_KUBE_NAMESPACE get svc proxy-public | grep "LoadBalancer" | awk '{print $4}'`
+open http://$EXTIP
+```
+
+JupyterHub is running with a default dummy authenticator so entering any username and password combination will let you enter the hub.
+
+If it is NOT running. Check the pods with **kubectl describe pods x**. Is there any memory errors?
+
 # Turning Off JupyterHub and Computational Resources
 
 See [turn-off](https://zero-to-jupyterhub.readthedocs.io/en/latest/turn-off.html)
@@ -351,3 +361,8 @@ At a minimum, check the following under the Hamburger (left top corner) menu:
 * Container Engine -> Container Clusters
 * Container Registry -> Images
 * Networking -> Network Services -> Load Balancing
+
+# Extend jupyterhub
+
+
+[extending-jupyterhub](https://zero-to-jupyterhub.readthedocs.io/en/latest/extending-jupyterhub.html)
