@@ -29,8 +29,6 @@ open https://console.cloud.google.com
 Save variables from Google Project name
 
 ```bash
-echo "# The Google Cloud account" >> 01_vars.sh
-echo "G_ACCOUNT=mymail@gmail.com" >> 01_vars.sh
 echo "# The Google Cloud Project name" >> 01_vars.sh
 echo "G_PROJECT_NAME=Name" >> 01_vars.sh
 echo "# The Google Cloud  Project ID" >> 01_vars.sh
@@ -74,11 +72,14 @@ gcloud compute machine-types list | head
 gcloud compute machine-types list | grep europe
 compute machine-types list | grep europe-west3
 gcloud compute machine-types list | grep europe-west3 | grep n1-standard-1
+gcloud compute machine-types list | grep europe-west3 | grep f1-micro
+
 
 gcloud compute regions list
 ```
 
-Save variables for Kubernetes engine
+Save variables for Kubernetes engine.
+You need to start minimum 3 nodes.
 
 ```bash
 echo "# The Google Cloud Kubernetes Name" >> 01_vars.sh
@@ -90,9 +91,9 @@ echo "G_KUBE_ZONE=europe-west3-a" >> 01_vars.sh
 echo "# The Google Cloud Kubernetes cluster-version" >> 01_vars.sh
 echo "G_KUBE_CLUSTERVERSION=1.8.7-gke.1" >> 01_vars.sh
 echo "# The Google Cloud Kubernetes machine-type" >> 01_vars.sh
-echo "G_KUBE_MACHINETYPE=n1-standard-1" >> 01_vars.sh
+echo "G_KUBE_MACHINETYPE=f1-micro" >> 01_vars.sh
 echo "# The Google Cloud Kubernetes number of nodes" >> 01_vars.sh
-echo "G_KUBE_NUMNODES=1" >> 01_vars.sh
+echo "G_KUBE_NUMNODES=3" >> 01_vars.sh
 ```
 
 Source the variables to your current shell.
@@ -103,11 +104,6 @@ echo $G_KUBE_ZONE
 echo $G_KUBE_CLUSTERVERSION 
 echo $G_KUBE_MACHINETYPE
 echo $G_KUBE_NUMNODES
-```
-
-First check projects
-```bash
-gcloud projects list
 ```
 
 See configurations
@@ -311,3 +307,44 @@ helm install jupyterhub/jupyterhub \
     --namespace=$G_KUBE_NAMESPACE \
     -f config.yaml
 ```
+
+## Verify
+
+You can find if the hub and proxy is ready by doing:
+```bash
+kubectl --namespace=$G_KUBE_NAMESPACE get pod
+```
+
+You can find the public IP of the JupyterHub by doing:
+```bash
+kubectl --namespace=$G_KUBE_NAMESPACE get svc
+kubectl --namespace=$G_KUBE_NAMESPACE get svc proxy-public
+kubectl --namespace=$G_KUBE_NAMESPACE describe svc proxy-public
+```
+
+# Turning Off JupyterHub and Computational Resources
+
+See [turn-off](https://zero-to-jupyterhub.readthedocs.io/en/latest/turn-off.html)
+```bash
+helm delete $H_RELEASE --purge
+kubectl delete namespace $G_KUBE_NAMESPACE
+
+# Delete clusters
+gcloud container clusters list
+gcloud container clusters delete $G_KUBE_NAME --zone=$G_KUBE_ZONE
+
+# Check
+gcloud container clusters list
+kubectl get nodes
+kubectl get services
+```
+
+Double check to make sure all the resources are now deleted, since anything you have not deleted will cost you money! <br>
+You can check the web console (make sure you are in the right project and account) to verify that everything has been deleted.
+
+At a minimum, check the following under the Hamburger (left top corner) menu:
+
+* Compute Engine -> Disks
+* Container Engine -> Container Clusters
+* Container Registry -> Images
+* Networking -> Network Services -> Load Balancing
