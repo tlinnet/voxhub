@@ -71,15 +71,14 @@ gcloud compute zones list
 gcloud compute machine-types list | head
 gcloud compute machine-types list | grep europe
 compute machine-types list | grep europe-west3
-gcloud compute machine-types list | grep europe-west3 | grep n1-standard-1
-gcloud compute machine-types list | grep europe-west3 | grep f1-micro
+gcloud compute machine-types list | grep europe-west3 | grep n1-standard-2
 
 
 gcloud compute regions list
 ```
 
 Save variables for Kubernetes engine.
-You need to start minimum 3 nodes.
+You need to start minimum 1 nodes, but with at least **7.5GB Memory.**
 
 ```bash
 echo "# The Google Cloud Kubernetes Name" >> 01_vars.sh
@@ -91,9 +90,9 @@ echo "G_KUBE_ZONE=europe-west3-a" >> 01_vars.sh
 echo "# The Google Cloud Kubernetes cluster-version" >> 01_vars.sh
 echo "G_KUBE_CLUSTERVERSION=1.8.7-gke.1" >> 01_vars.sh
 echo "# The Google Cloud Kubernetes machine-type" >> 01_vars.sh
-echo "G_KUBE_MACHINETYPE=f1-micro" >> 01_vars.sh
+echo "G_KUBE_MACHINETYPE=n1-standard-2" >> 01_vars.sh
 echo "# The Google Cloud Kubernetes number of nodes" >> 01_vars.sh
-echo "G_KUBE_NUMNODES=3" >> 01_vars.sh
+echo "G_KUBE_NUMNODES=1" >> 01_vars.sh
 ```
 
 Source the variables to your current shell.
@@ -308,6 +307,15 @@ helm install jupyterhub/jupyterhub \
 You can find if the hub and proxy is ready by doing:
 ```bash
 kubectl --namespace=$G_KUBE_NAMESPACE get pod
+
+# Bug finding
+HUB=`kubectl --namespace=$G_KUBE_NAMESPACE get pod | grep "hub-" | cut -d " " -f1`
+kubectl describe pods $HUB
+PROXY=`kubectl --namespace=$G_KUBE_NAMESPACE get pod | grep "proxy-" | cut -d " " -f1`
+kubectl describe pods $PROXY
+PREPULL1=`kubectl --namespace=$G_KUBE_NAMESPACE get pod | grep "pre-" | head -n 1 | tail -n 1 | cut -d " " -f1`
+kubectl describe pods $PREPULL1
+PREPULL2=`kubectl --namespace=$G_KUBE_NAMESPACE get pod | grep "pre-" | head -n 2 | tail -n 1 | cut -d " " -f1`
 ```
 
 You can find the public IP of the JupyterHub by doing:
