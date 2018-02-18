@@ -442,3 +442,229 @@ Wait for about a minute, now your hub should be HTTPS enabled!
 ```bash
 open https://$H_HOST
 ```
+
+Set the default target for the proxy, by specifying https.<br>
+The normal standards can be seen in "values.yaml", <br>
+downloaded from jupyterhub-v0.6.tgz https://jupyterhub.github.io/helm-chart/
+
+Or more info here [jupyterhub/configurable-http-proxy](https://github.com/jupyterhub/configurable-http-proxy)
+
+We are changing from **http** to **https**.
+
+```bash
+echo "  chp:" >> config.yaml
+echo "    cmd:" >> config.yaml
+echo '      - configurable-http-proxy' >> config.yaml
+echo '      - --ip=0.0.0.0' >> config.yaml
+echo '      - --port=8000' >> config.yaml
+echo '      - --api-ip=0.0.0.0' >> config.yaml
+echo '      - --api-port=8001' >> config.yaml
+echo '      - --default-target=https://$(HUB_SERVICE_HOST):$(HUB_SERVICE_PORT)' >> config.yaml
+echo '      - --error-target=https://$(HUB_SERVICE_HOST):$(HUB_SERVICE_PORT)' >> config.yaml
+echo '      - --log-level=debug' >> config.yaml
+
+cat config.yaml
+```
+
+Run a helm upgrade:
+```bash
+# See revision
+helm list
+helm upgrade $H_RELEASE jupyterhub/jupyterhub --version=$H_VERSION --namespace=$G_KUBE_NAMESPACE -f config.yaml
+# Revision should have changed
+helm list
+
+# Check pods
+kubectl --namespace=$G_KUBE_NAMESPACE get pod
+```
+
+Try
+```bash
+open http://$H_HOST
+```
+
+# Delete the Kubernetes Dashboard
+
+See here: [delete-the-kubernetes-dashboard](http://zero-to-jupyterhub.readthedocs.io/en/latest/security.html#delete-the-kubernetes-dashboard)
+
+```bash
+# First inspect
+kubectl --namespace=kube-system get deployment
+kubectl --namespace=kube-system get deployment kubernetes-dashboard
+# Delete
+kubectl --namespace=kube-system delete deployment kubernetes-dashboard
+kubectl --namespace=kube-system get deployment
+```
+
+# Authentication with bitbucket
+
+See [authentication](http://zero-to-jupyterhub.readthedocs.io/en/latest/authentication.html)
+
+* [List of all methods][https://github.com/jupyterhub/oauthenticator]
+
+For bitbucket, see this [oauth-on-bitbucket-cloud](https://confluence.atlassian.com/bitbucket/oauth-on-bitbucket-cloud-238027431.html)
+
+At bitbucket
+* Visit https://bitbucket.org/account
+* Click **OAuth**
+* Click **Add consumer**
+* Name: Some random name
+* Description: Testing
+* Callback URL: https://${H_HOST}/hub/oauth_callback    (replace $H_HOST with your domain)
+* Don't change the tick in "This is a private consumer"
+* Permissions: Just ask for: Account-->Email
+* Click save
+* Click the name, and record "Key"-->H_AUTHCLIENTID and "Secret"-->H_AUTHCLIENTSECRET
+
+Save variables
+
+```bash
+echo "# The auth type " >> 01_vars.sh
+echo "H_AUTHTYPE=bitbucket" >> 01_vars.sh
+echo "# The auth clientId " >> 01_vars.sh
+echo "H_AUTHCLIENTID=y0urg1thubc1ient1d" >> 01_vars.sh
+echo "# The auth clientSecret " >> 01_vars.sh
+echo "H_AUTHCLIENTSECRET=an0ther1ongs3cretstr1ng" >> 01_vars.sh
+
+source 01_vars.sh
+```
+
+Write config
+
+```bash
+echo "" >> config.yaml
+echo "hub:" >> config.yaml
+echo "  extraEnv:" >> config.yaml
+echo "    OAUTH2_AUTHORIZE_URL: https://bitbucket.org/site/oauth2/authorize" >> config.yaml
+echo "    OAUTH2_TOKEN_URL: https://bitbucket.org/site/oauth2/access_token" >> config.yaml
+echo "auth:" >> config.yaml
+echo "  type: custom" >> config.yaml
+echo "  custom:" >> config.yaml
+echo "    className: oauthenticator.generic.GenericOAuthenticator" >> config.yaml
+echo "    config:" >> config.yaml
+echo "      client_id: '$H_AUTHCLIENTID'" >> config.yaml
+echo "      client_secret: '$H_AUTHCLIENTSECRET'" >> config.yaml
+echo "      token_url: https://bitbucket.org/site/oauth2/access_token" >> config.yaml
+echo "      userdata_url: https://bitbucket.org/site/oauth2/userinfo" >> config.yaml
+echo "      userdata_method: GET" >> config.yaml
+echo "      userdata_params: {'state': 'state'}" >> config.yaml
+echo "      username_key: preferred_username" >> config.yaml
+
+cat config.yaml
+```
+
+Run a helm upgrade:
+```bash
+# See revision
+helm list
+helm upgrade $H_RELEASE jupyterhub/jupyterhub --version=$H_VERSION --namespace=$G_KUBE_NAMESPACE -f config.yaml
+# Revision should have changed
+helm list
+
+# Check pods
+kubectl --namespace=$G_KUBE_NAMESPACE get pod
+```
+
+Try
+```bash
+open http://$H_HOST
+```
+
+One should get prompted for login with bitbucket.
+
+Afterwards a "500 : Internal Server Error" will display. 
+
+Let us check the logs
+
+```bash
+HUB=`kubectl --namespace=$G_KUBE_NAMESPACE get pod | grep "hub-" | cut -d " " -f1`
+kubectl describe pods $HUB
+kubectl logs $HUB
+```
+
+The logs show problems??? 
+
+We delete **hub** and **auth**, and make with github instead
+
+Update, H_AUTHCLIENTID and H_AUTHCLIENTSECRET in 01_vars.sh
+```bash
+source 01_vars.sh
+```
+
+```bash
+echo "" >> config.yaml
+echo "auth:" >> config.yaml
+echo "  type: github" >> config.yaml
+echo "  github:" >> config.yaml
+echo "    clientId: '$H_AUTHCLIENTID'" >> config.yaml
+echo "    clientSecret: '$H_AUTHCLIENTSECRET'" >> config.yaml
+echo "    callbackUrl: 'https://${H_HOST}/hub/oauth_callback'" >> config.yaml
+
+cat config.yaml
+```
+
+Run a helm upgrade:
+```bash
+# See revision
+helm list
+helm upgrade $H_RELEASE jupyterhub/jupyterhub --version=$H_VERSION --namespace=$G_KUBE_NAMESPACE -f config.yaml
+# Revision should have changed
+helm list
+
+# Check pods
+kubectl --namespace=$G_KUBE_NAMESPACE get pod
+```
+Try
+```bash
+open http://$H_HOST
+```
+
+This works
+
+## Whitelist bitbucket users
+
+First declare a bash array with users to whitelist
+
+```bash
+echo "# The array of users to whitelist " >> 01_vars.sh
+echo 'H_WHITE=(user1 user2)' >> 01_vars.sh
+
+source 01_vars.sh
+```
+
+Try looping over the array
+
+```bash
+for x in ${H_WHITE[@]}; do
+    echo $x
+done
+```
+
+Then write to config
+
+```bash
+echo "" >> config.yaml
+echo "  whitelist:" >> config.yaml
+echo "    users:" >> config.yaml
+
+for x in ${H_WHITE[@]}; do
+    echo "      - $x" >> config.yaml
+done
+
+cat config.yaml 
+```
+
+Run a helm upgrade:
+```bash
+# See revision
+helm list
+helm upgrade $H_RELEASE jupyterhub/jupyterhub --version=$H_VERSION --namespace=$G_KUBE_NAMESPACE -f config.yaml
+# Revision should have changed
+helm list
+
+# Check pods
+kubectl --namespace=$G_KUBE_NAMESPACE get pod
+
+# Try
+open http://$H_HOST
+```
