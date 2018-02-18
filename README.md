@@ -9,7 +9,7 @@ See:
 Create this file, which will keep variables
 used in the setup.
 
-Source the variables to your current shell.
+Later, we will source the variables to oour current shell.
 
 ```bash
 source 01_vars.sh
@@ -20,13 +20,9 @@ source 01_vars.sh
 See
 [setting-up-kubernetes-on-google-cloud](https://zero-to-jupyterhub.readthedocs.io/en/latest/create-k8s-cluster.html#setting-up-kubernetes-on-google-cloud).
 
-[open https://console.cloud.google.com](https://console.cloud.google.com)
+Open [console.cloud.google.com](https://console.cloud.google.com)
 
-```bash
-open https://console.cloud.google.com
-```
-
-Save variables from Google Project name
+Create a project, and save variables from Google Project name
 
 ```bash
 echo "# The Google Cloud Project name" >> 01_vars.sh
@@ -46,7 +42,7 @@ echo $G_PROJECT_NAME
 
 ## Enable the Kubernetes Engine API.
 
-[https://console.cloud.google.com/apis/api/container.googleapis.com/overview][https://console.cloud.google.com/apis/api/container.googleapis.com/overview]
+[container.googleapis.com/overview](https://console.cloud.google.com/apis/api/container.googleapis.com/overview)
 
 ## Install kubectl
 
@@ -62,7 +58,7 @@ Pricing is [here](https://cloud.google.com/compute/pricing#machinetype)
 
 Zones is [explained here](https://cloud.google.com/compute/docs/regions-zones/)
 
-europe-west1 is in St. Ghislain, Belgium
+Region **europe-west1** is in St. Ghislain, Belgium
 
 ```bash
 gcloud compute regions list
@@ -187,8 +183,10 @@ See [accessing-the-api](https://kubernetes.io/docs/admin/accessing-the-api/)
 
 ```bash
 # Get email of current service user
-SERVICE_USER=$(gcloud config get-value account)
-echo $SERVICE_USER
+G_KUBE_SERVICE_USER=$(gcloud config get-value account)
+echo $G_KUBE_SERVICE_USER
+echo "# The Google Cloud Kubernetes Service user " >> 01_vars.sh
+echo "G_KUBE_SERVICE_USER=$G_KUBE_SERVICE_USER" >> 01_vars.sh
 ```
 
 First see roles permission in google console. 
@@ -199,9 +197,9 @@ Filter by: 'Kubernetes'. Look for 'Kubernetes Engine'.
 Open them, search for "container.clusterRoleBindings.create".
 The role "Kubernetes Engine Admin" has this rule.
 
-Then add this "Kubernetes Engine Admin" role to $SERVICE_USER:
+Then add this "Kubernetes Engine Admin" role to $G_KUBE_SERVICE_USER:
 ```bash
-echo $SERVICE_USER
+echo $G_KUBE_SERVICE_USER
 open https://console.cloud.google.com/iam-admin/iam/project?project=${G_PROJECT_ID}
 ```
 
@@ -210,7 +208,7 @@ Give your account super-user permissions, allowing you to perform all the action
 ```bash
 kubectl create clusterrolebinding cluster-admin-binding \
     --clusterrole=admin \
-    --user=$SERVICE_USER
+    --user=$G_KUBE_SERVICE_USER
 ```
 
 # Setup Helm
@@ -281,15 +279,17 @@ Save variables for Helm.
 ```bash
 G_KUBE_CURCONT=`kubectl config current-context`
 echo $G_KUBE_CURCONT
-echo "# The The Google Cloud Kubernetes current context " >> 01_vars.sh
+echo "# The Google Cloud Kubernetes current context " >> 01_vars.sh
 echo "G_KUBE_CURCONT=$G_KUBE_CURCONT" >> 01_vars.sh
 
 G_KUBE_NAMESPACE=$G_PROJECT_NAME
 echo $G_KUBE_NAMESPACE
-echo "# The The Google Cloud Kubernetes namespace " >> 01_vars.sh
+echo "# The Google Cloud Kubernetes namespace " >> 01_vars.sh
 echo "G_KUBE_NAMESPACE=$G_KUBE_NAMESPACE" >> 01_vars.sh
 
 # The relase name must NOT contain underscores "_"
+echo "# The Helm version " >> 01_vars.sh
+echo "H_VERSION=v0.6" >> 01_vars.sh
 echo "# The Helm release name " >> 01_vars.sh
 echo "H_RELEASE=jup-01" >> 01_vars.sh
 
@@ -309,11 +309,7 @@ kubectl config view | grep namespace:
 
 Install 
 ```bash
-helm install jupyterhub/jupyterhub \
-    --version=v0.6 \
-    --name=$H_RELEASE \
-    --namespace=$G_KUBE_NAMESPACE \
-    -f config.yaml
+helm install jupyterhub/jupyterhub --version=$H_VERSION --name=$H_RELEASE --namespace=$G_KUBE_NAMESPACE -f config.yaml
 ```
 
 ## Verify
@@ -396,3 +392,53 @@ Make an A record: A (Navn -> IP adresse)
 * TTL: 7200 
 
 Wait 24-48 hours.
+
+# Enable HTTPS
+
+See [security](https://zero-to-jupyterhub.readthedocs.io/en/latest/security.html)
+
+By letsencrypt.
+
+Save variables
+
+```bash
+echo "# The webpage hostname " >> 01_vars.sh
+echo "H_HOST=hub.cooldomain.dk" >> 01_vars.sh
+echo "# The webpage hostname " >> 01_vars.sh
+echo "H_CONTACTMAIL=mymail@gmail.com" >> 01_vars.sh
+
+source 01_vars.sh
+```
+
+First check current state of https 
+```bash
+open https://$H_HOST
+```
+
+Write to config
+
+```bash
+echo "  https:" >> config.yaml
+echo "    hosts:" >> config.yaml
+echo "      - $H_HOST" >> config.yaml
+echo "    letsencrypt:" >> config.yaml
+echo "      contactEmail: $H_CONTACTMAIL" >> config.yaml
+cat config.yaml
+```
+
+Run a helm upgrade:
+```bash
+# See revision
+helm list
+helm upgrade $H_RELEASE jupyterhub/jupyterhub --version=$H_VERSION --namespace=$G_KUBE_NAMESPACE -f config.yaml
+# Revision should have changed
+helm list
+
+# Check pods
+kubectl --namespace=$G_KUBE_NAMESPACE get pod
+```
+
+Wait for about a minute, now your hub should be HTTPS enabled!
+```bash
+open https://$H_HOST
+```
