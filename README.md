@@ -380,23 +380,19 @@ At a minimum, check the following under the Hamburger (left top corner) menu:
 
 [extending-jupyterhub](https://zero-to-jupyterhub.readthedocs.io/en/latest/extending-jupyterhub.html)
 
-# Mofify CNAME
+# Mofify DNS A record (Name -> IP adresse)
 
-See [DNS](https://cloud.google.com/dns/quickstart)
+You have bought "cooldomain.dk", and want the subdomain  "hub.cooldomain.dk"
+to point to the google container cluster.
 
-and [DNS zone](https://console.cloud.google.com/net-services/dns/zones)
+You need to setup an A-record.
 
-At 
-Zone name: 'voxhub'
-DNS name: 'voxhub.voxtools.dk'
-DNSSEC: Off
+At your domain registrar (for example https://web.gratisdns.dk )
 
-At https://web.gratisdns.dk/
+Make an A record: A (Navn -> IP adresse)
 
-NS (Navneservers)
+* Host: hub.cooldomain.dk
+* IP (ipv4): $EXTIP
+* TTL: 7200 
 
-Host: voxhub.voxtools.dk
-Nsdname: ns-cloud-c1.googledomains.com
-TTL: 21600
-
-Do this 4 times
+Wait 24-48 hours.
