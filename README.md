@@ -709,10 +709,78 @@ See
 
 This works as well.
 
-```bash
+```text
 hub:
   extraConfig: |
     c.Authenticator.whitelist = {'mal', 'zoe', 'inara', 'kaylee'}
     c.Authenticator.admin_users = {'mal'}
 ```
 
+# Modify Docker image
+
+See 
+* [user-environment](https://zero-to-jupyterhub.readthedocs.io/en/latest/user-environment.html)
+* [Docker stacks](https://github.com/jupyter/docker-stacks)
+* [Docker-build-history with tags](https://github.com/jupyter/docker-stacks/wiki/Docker-build-history)
+
+Let us take "Jupyter Notebook Data Science Stack"
+* [datascience-notebook](https://github.com/jupyter/docker-stacks/tree/master/datascience-notebook)
+* [datascience-notebook](https://hub.docker.com/r/jupyter/datascience-notebook/tags/)
+
+As of 2018-02-19, let us stick to the tag defined in the manual: c7fb6660d096 <br>
+
+Please don't change the tag, before you have verified a first successful installation. <br>
+
+Save variables
+
+```bash
+echo "# The image name " >> 01_vars.sh
+echo "H_IMAGENAME=jupyter/datascience-notebook" >> 01_vars.sh
+echo "# The image tag" >> 01_vars.sh
+echo "H_IMAGETAG=c7fb6660d096" >> 01_vars.sh
+
+source 01_vars.sh
+```
+
+Write to config
+
+```bash
+echo "" >> config.yaml
+echo "singleuser:" >> config.yaml
+echo "  image:" >> config.yaml
+echo "    name: $H_IMAGENAME" >> config.yaml
+echo "    tag: $H_IMAGETAG" >> config.yaml
+cat config.yaml
+```
+
+Note, this will take take several minutes due to prepuller.<br>
+See [pre-pulling-basics](https://zero-to-jupyterhub.readthedocs.io/en/latest/optimization.html#pre-pulling-basics)
+
+**Note** We add a timeout to the helm updrade, which is 5x as long as normal, 1500s=25 min. 
+
+Run a helm upgrade:
+```bash
+# See revision
+helm list
+helm upgrade $H_RELEASE jupyterhub/jupyterhub --timeout=1500 --version=$H_VERSION --namespace=$G_KUBE_NAMESPACE -f config.yaml
+# Revision should have changed
+helm list
+
+# Check pods
+kubectl --namespace=$G_KUBE_NAMESPACE get pod
+
+# Try
+open http://$H_HOST
+```
+
+You may need to logon, --> Control panel --> Stop My Server, and start new server.
+
+Try make a new notebook and run pip freeze to see packages.
+
+```python
+! pip freeze
+```
+
+Try to change kernel to Julia or R.
+
+Wuhuu. This works.
