@@ -522,12 +522,17 @@ Save variables
 echo "# The auth type " >> 01_vars.sh
 echo "H_AUTHTYPE=bitbucket" >> 01_vars.sh
 echo "# The auth clientId " >> 01_vars.sh
-echo "H_AUTHCLIENTID=y0urg1thubc1ient1d" >> 01_vars.sh
+echo "H_AUTHCLIENTID_BIT=y0urg1thubc1ient1d" >> 01_vars.sh
 echo "# The auth clientSecret " >> 01_vars.sh
-echo "H_AUTHCLIENTSECRET=an0ther1ongs3cretstr1ng" >> 01_vars.sh
+echo "H_AUTHCLIENTSECRET_BIT=an0ther1ongs3cretstr1ng" >> 01_vars.sh
 
 source 01_vars.sh
 ```
+
+See 
+* [oauthenticator](https://github.com/jupyterhub/oauthenticator)
+* [bitbucket](https://github.com/jupyterhub/oauthenticator/blob/master/oauthenticator/bitbucket.py)
+* [Advanced configuration hub-extraconfig](http://zero-to-jupyterhub.readthedocs.io/en/latest/advanced.html#hub-extraconfig)
 
 Write config
 
@@ -542,13 +547,13 @@ echo "  type: custom" >> config.yaml
 echo "  custom:" >> config.yaml
 echo "    className: oauthenticator.generic.GenericOAuthenticator" >> config.yaml
 echo "    config:" >> config.yaml
-echo "      client_id: '$H_AUTHCLIENTID'" >> config.yaml
-echo "      client_secret: '$H_AUTHCLIENTSECRET'" >> config.yaml
+echo "      client_id: '$H_AUTHCLIENTID_BIT'" >> config.yaml
+echo "      client_secret: '$H_AUTHCLIENTSECRET_BIT'" >> config.yaml
 echo "      token_url: https://bitbucket.org/site/oauth2/access_token" >> config.yaml
-echo "      userdata_url: https://bitbucket.org/site/oauth2/userinfo" >> config.yaml
+echo "      userdata_url: https://api.bitbucket.org/2.0/user" >> config.yaml
 echo "      userdata_method: GET" >> config.yaml
 echo "      userdata_params: {'state': 'state'}" >> config.yaml
-echo "      username_key: preferred_username" >> config.yaml
+echo "      username_key: username" >> config.yaml
 
 cat config.yaml
 ```
@@ -584,10 +589,21 @@ kubectl logs $HUB
 
 The logs show problems??? 
 
+# Authentication with github
 We delete **hub** and **auth**, and make with github instead
 
-Update, H_AUTHCLIENTID and H_AUTHCLIENTSECRET in 01_vars.sh
+See (github developers)[https://github.com/settings/developers]
+
+Save variables
+
 ```bash
+echo "# The auth type " >> 01_vars.sh
+echo "H_AUTHTYPE=github" >> 01_vars.sh
+echo "# The auth clientId " >> 01_vars.sh
+echo "H_AUTHCLIENTID_GIT=y0urg1thubc1ient1d" >> 01_vars.sh
+echo "# The auth clientSecret " >> 01_vars.sh
+echo "H_AUTHCLIENTSECRET_GIT=an0ther1ongs3cretstr1ng" >> 01_vars.sh
+
 source 01_vars.sh
 ```
 
@@ -596,8 +612,8 @@ echo "" >> config.yaml
 echo "auth:" >> config.yaml
 echo "  type: github" >> config.yaml
 echo "  github:" >> config.yaml
-echo "    clientId: '$H_AUTHCLIENTID'" >> config.yaml
-echo "    clientSecret: '$H_AUTHCLIENTSECRET'" >> config.yaml
+echo "    clientId: '$H_AUTHCLIENTID_GIT'" >> config.yaml
+echo "    clientSecret: '$H_AUTHCLIENTSECRET_GIT'" >> config.yaml
 echo "    callbackUrl: 'https://${H_HOST}/hub/oauth_callback'" >> config.yaml
 
 cat config.yaml
@@ -619,25 +635,38 @@ Try
 open http://$H_HOST
 ```
 
-This works
+This works :)
 
-## Whitelist bitbucket users
+# Whitelist users and add admin
 
-First declare a bash array with users to whitelist
+See 
+* [adding-a-whitelist](http://zero-to-jupyterhub.readthedocs.io/en/latest/authentication.html#adding-a-whitelist)
+* [admin-users](http://zero-to-jupyterhub.readthedocs.io/en/latest/user-management.html#admin-users)
+
+[Add or remove users from the Hub](https://github.com/jupyterhub/jupyterhub/blob/master/docs/source/getting-started/authenticators-users-basics.md#add-or-remove-users-from-the-hub) <br>
+Users can be added to and removed from the Hub via either the admin panel or the REST API. <br>
+When a user is added, the user will be automatically added to the whitelist and database. <br>
+Restarting the Hub will not require manually updating the whitelist in your config file, as the **users will be loaded from the database**.
+
+After starting the Hub once, it is **not sufficient** to remove a user from the whitelist in your config file.<br>
+You must **also remove the user from the Hub's database**, either by deleting the **user from JupyterHub's admin page**,<br>
+or you can clear the jupyterhub.sqlite database and start fresh.
+
+First declare a bash array with users to whitelist and admin.
 
 ```bash
 echo "# The array of users to whitelist " >> 01_vars.sh
-echo 'H_WHITE=(user1 user2)' >> 01_vars.sh
-
+echo 'H_WHITE=(user1 user2 user3 user4)' >> 01_vars.sh
+echo "# The array of users to admin " >> 01_vars.sh
+echo 'H_ADMIN=(user1 user4)' >> 01_vars.sh
 source 01_vars.sh
 ```
 
-Try looping over the array
+Try looping over the array in bash
 
 ```bash
-for x in ${H_WHITE[@]}; do
-    echo $x
-done
+for x in ${H_WHITE[@]}; do echo "User: $x"; done
+for x in ${H_ADMIN[@]}; do echo "Admin: $x"; done
 ```
 
 Then write to config
@@ -646,10 +675,11 @@ Then write to config
 echo "" >> config.yaml
 echo "  whitelist:" >> config.yaml
 echo "    users:" >> config.yaml
+for x in ${H_WHITE[@]}; do echo "      - $x" >> config.yaml; done
 
-for x in ${H_WHITE[@]}; do
-    echo "      - $x" >> config.yaml
-done
+echo "  admin:" >> config.yaml
+echo "    users:" >> config.yaml
+for x in ${H_ADMIN[@]}; do echo "      - $x" >> config.yaml; done
 
 cat config.yaml 
 ```
@@ -668,3 +698,21 @@ kubectl --namespace=$G_KUBE_NAMESPACE get pod
 # Try
 open http://$H_HOST
 ```
+
+This works. Admin users can now go to "Control Panel" --> "Admin".<br>
+And here delete users.
+
+Another method. First delete the section with **whitelist** and **admin**.<br>
+See
+* [Advanced configuration hub-extraconfig](http://zero-to-jupyterhub.readthedocs.io/en/latest/advanced.html#hub-extraconfig)
+* [authenticators-users-basics](https://github.com/jupyterhub/jupyterhub/blob/master/docs/source/getting-started/authenticators-users-basics.md)
+
+This works as well.
+
+```bash
+hub:
+  extraConfig: |
+    c.Authenticator.whitelist = {'mal', 'zoe', 'inara', 'kaylee'}
+    c.Authenticator.admin_users = {'mal'}
+```
+
